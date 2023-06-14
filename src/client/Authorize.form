@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="client.Authorize">
+  <grid id="27dc6" binding="MainPanel" layout-manager="BorderLayout" hgap="0" vgap="0">
+    <constraints>
+      <xy x="20" y="20" width="500" height="400"/>
+    </constraints>
+    <properties/>
+    <border type="none"/>
+    <children>
+      <grid id="7ef93" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+        <constraints border-constraint="Center"/>
+        <properties/>
+        <border type="none"/>
+        <children>
+          <component id="903d0" class="javax.swing.JLabel">
+            <constraints/>
+            <properties>
+              <text value="Your name: "/>
+            </properties>
+          </component>
+          <component id="afbcc" class="javax.swing.JTextField" binding="textField1" default-binding="true">
+            <constraints/>
+            <properties>
+              <columns value="20"/>
+            </properties>
+          </component>
+          <component id="82f03" class="javax.swing.JButton" binding="confirmButton" default-binding="true">
+            <constraints/>
+            <properties>
+              <text value="Confirm"/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+      <grid id="9c5b0" layout-manager="FlowLayout" hgap="5" vgap="5" flow-align="1">
+        <constraints border-constraint="North"/>
+        <properties/>
+        <border type="none"/>
+        <children>
+          <component id="15e08" class="javax.swing.JLabel">
+            <constraints/>
+            <properties>
+              <text value="IP:port"/>
+            </properties>
+          </component>
+          <component id="5bc32" class="javax.swing.JTextField" binding="textField2" default-binding="true">
+            <constraints/>
+            <properties>
+              <columns value="20"/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+      <grid id="48891" layout-manager="BorderLayout" hgap="0" vgap="0">
+        <constraints border-constraint="South"/>
+        <properties/>
+        <border type="none"/>
+        <children>
+          <component id="fa465" class="javax.swing.JLabel" binding="ErrorLabel">
+            <constraints border-constraint="Center"/>
+            <properties>
+              <foreground color="-6094080"/>
+              <text value=""/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+    </children>
+  </grid>
+</form>
