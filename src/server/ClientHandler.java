@@ -88,7 +88,7 @@ public class ClientHandler implements Runnable {
             }
         }
         catch (IOException e) {
-            Server.LOGGER.log(Level.ALL, "USID: " + USID + "; connection has been corrupted, error: " + e.getMessage());
+            Server.LOGGER.info("USID: " + USID + "; connection has been corrupted, error: " + e.getMessage());
             Server.LOGGER.info("USID: " + USID + "; cancelling corrupted connection");
         }
         finally {
@@ -106,6 +106,7 @@ public class ClientHandler implements Runnable {
         try {
             ControlServer.PARSER.encode(stream, message);
         } catch (ParsingException e) {
+            Server.LOGGER.info("Parser exception: " + e.getMessage());
             IsAlive.set(false);
             return;
         }
@@ -121,6 +122,7 @@ public class ClientHandler implements Runnable {
         try {
             inputQueue.offer(ControlServer.PARSER.parse(new ByteArrayInputStream(message.array())));
         } catch (ParsingException e) {
+            Server.LOGGER.info("Parser exception: " + e.getMessage());
             IsAlive.set(false);
         }
     }

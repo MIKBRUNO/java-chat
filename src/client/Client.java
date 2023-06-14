@@ -4,6 +4,7 @@ import messages.*;
 import messages.parsing.MessageReadWrite;
 import messages.parsing.ParsingException;
 import messages.parsing.serialization.SerializationParser;
+import messages.parsing.xml.XMLParser;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -27,7 +28,7 @@ public class Client implements AutoCloseable {
         IsAlive.set(false);
         boolean XML = Boolean.parseBoolean(ClientConfig.getFieldValue(ClientConfig.Field.XML));
         if (XML) {
-            PARSER = null;
+            PARSER = new XMLParser();
         }
         else {
             PARSER = new SerializationParser();
@@ -138,6 +139,7 @@ public class Client implements AutoCloseable {
                 ServerClientSessionID id = (ServerClientSessionID) message.getMessage();
                 USID = id.usid();
             }
+            case SERVER_EMPTY_SUCCESS -> {  }
         }
         if (MessageListener != null) {
             MessageListener.accept(message);

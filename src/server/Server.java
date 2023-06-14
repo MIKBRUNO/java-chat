@@ -3,6 +3,7 @@ package server;
 import messages.*;
 import messages.parsing.MessageReadWrite;
 import messages.parsing.serialization.SerializationParser;
+import messages.parsing.xml.XMLParser;
 
 import java.io.*;
 import java.net.InetSocketAddress;
@@ -29,7 +30,7 @@ public class Server {
         PORT = port;
         final boolean XML = Boolean.parseBoolean(ServerConfigurations.getFieldValue(ServerConfigurations.Field.XML));
         if (XML) {
-            PARSER = null;
+            PARSER = new XMLParser();
         }
         else {
             PARSER = new SerializationParser();
@@ -183,6 +184,10 @@ public class Server {
                     ClientMessage message = (ClientMessage) msg.getMessage();
                     ServerMessage serverMessage = new ServerMessage(message.message(), session.login().name());
                     backlog(serverMessage);
+                    session.handler().addOutputMessage(new Message(
+                            MessageType.SERVER_EMPTY_SUCCESS,
+                            null
+                    ));
                     broadcast(new Message(
                             MessageType.SERVER_MESSAGE,
                             serverMessage
@@ -200,6 +205,10 @@ public class Server {
             case CLIENT_LOGOUT -> {
                 if (session.isAuthorised()) {
                     LOGGER.info("USID " + usid + ": user logout");
+                    session.handler().addOutputMessage(new Message(
+                            MessageType.SERVER_EMPTY_SUCCESS,
+                            null
+                    ));
                     removeSession(usid);
                 }
                 else {

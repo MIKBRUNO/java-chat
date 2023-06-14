@@ -1,1 +1,1 @@
-XML=false
+XML=true
