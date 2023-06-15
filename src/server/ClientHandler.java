@@ -26,6 +26,10 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try (Selector selector = Selector.open()) {
+            synchronized (this) {
+                ListeneingSelector = selector;
+                this.notify();
+            }
             SockChannel.configureBlocking(false);
             SelectionKey socketKey = SockChannel.register(selector, SelectionKey.OP_READ);
             ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
@@ -33,7 +37,7 @@ public class ClientHandler implements Runnable {
             boolean isReadingObject = false;
 
             while (!Thread.interrupted() && ControlServer.isRunning() && isAlive()) {
-                selector.select(Server.TIMEOUT);
+                selector.select();
                 var iter = selector.selectedKeys().iterator();
                 while (iter.hasNext()) {
                     SelectionKey key = iter.next();
@@ -63,7 +67,7 @@ public class ClientHandler implements Runnable {
                             break;
                         }
                     }
-                    synchronized (this) {
+                    synchronized (outputQueue) {
                         if (!outputQueue.isEmpty() && key.isWritable()) {
                                 ByteBuffer buffer = outputQueue.element();
                                 SockChannel.write(buffer);
@@ -75,15 +79,17 @@ public class ClientHandler implements Runnable {
                         }
                     }
                     Message message;
-                    synchronized (this) {
+                    synchronized (inputQueue) {
                         message = inputQueue.poll();
                     }
                     if (message != null) {
                         ControlServer.handleMessage(message, USID);
                     }
                 }
-                if (!outputQueue.isEmpty()) {
-                    socketKey.interestOpsOr(SelectionKey.OP_WRITE);
+                synchronized (outputQueue) {
+                    if (!outputQueue.isEmpty()) {
+                        socketKey.interestOpsOr(SelectionKey.OP_WRITE);
+                    }
                 }
             }
         }
@@ -101,7 +107,7 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public synchronized void addOutputMessage(Message message) {
+    public void addOutputMessage(Message message) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             ControlServer.PARSER.encode(stream, message);
@@ -115,12 +121,26 @@ public class ClientHandler implements Runnable {
         buffer.putInt(bytes.length);
         buffer.put(bytes);
         buffer.position(0);
-        outputQueue.offer(buffer);
+        synchronized (outputQueue) {
+            outputQueue.offer(buffer);
+        }
+        synchronized (this) {
+            while (ListeneingSelector == null) {
+                try {
+                    this.wait();
+                } catch (InterruptedException e) {
+                    IsAlive.set(false);
+                }
+            }
+            ListeneingSelector.wakeup();
+        }
     }
 
-    private synchronized void addInputMessage(ByteBuffer message) {
+    private void addInputMessage(ByteBuffer message) {
         try {
-            inputQueue.offer(ControlServer.PARSER.parse(new ByteArrayInputStream(message.array())));
+            synchronized (inputQueue) {
+                inputQueue.offer(ControlServer.PARSER.parse(new ByteArrayInputStream(message.array())));
+            }
         } catch (ParsingException e) {
             Server.LOGGER.info("Parser exception: " + e.getMessage());
             IsAlive.set(false);
@@ -131,7 +151,8 @@ public class ClientHandler implements Runnable {
         return IsAlive.get();
     }
 
-    private AtomicBoolean IsAlive = new AtomicBoolean(true);
+    private Selector ListeneingSelector;
+    private final AtomicBoolean IsAlive = new AtomicBoolean(true);
     private final SocketChannel SockChannel;
     private final Server ControlServer;
     private final UUID USID;

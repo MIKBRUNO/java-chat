@@ -77,7 +77,7 @@
                       <component id="52a83" class="javax.swing.JTextArea" binding="textArea1" default-binding="true">
                         <constraints/>
                         <properties>
-                          <preferredSize width="1" height="100"/>
+                          <rows value="7"/>
                         </properties>
                       </component>
                     </children>

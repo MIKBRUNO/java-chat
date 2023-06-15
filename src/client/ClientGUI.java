@@ -116,7 +116,7 @@ public class ClientGUI {
         final JScrollPane scrollPane3 = new JScrollPane();
         panel4.add(scrollPane3, BorderLayout.CENTER);
         textArea1 = new JTextArea();
-        textArea1.setPreferredSize(new Dimension(1, 100));
+        textArea1.setRows(7);
         scrollPane3.setViewportView(textArea1);
         sendButton = new JButton();
         sendButton.setText("Send");

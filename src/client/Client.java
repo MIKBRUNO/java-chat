@@ -57,6 +57,10 @@ public class Client implements AutoCloseable {
 
     private void work() {
         try (Selector selector = Selector.open()) {
+            synchronized (this) {
+                ListeningSelector = selector;
+                this.notify();
+            }
             SockChannel.configureBlocking(false);
             SelectionKey socketKey = SockChannel.register(selector, SelectionKey.OP_READ);
             ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
@@ -64,7 +68,7 @@ public class Client implements AutoCloseable {
             boolean isReadingObject = false;
 
             while (IsAlive.get()) {
-                selector.select(TIMEOUT);
+                selector.select();
                 var iter = selector.selectedKeys().iterator();
                 while (iter.hasNext()) {
                     SelectionKey key = iter.next();
@@ -94,30 +98,31 @@ public class Client implements AutoCloseable {
                             break;
                         }
                     }
-                    synchronized (this) {
-                        if (!outputQueue.isEmpty()) {
-
-                            if (key.isWritable()) {
-                                ByteBuffer buffer = outputQueue.element();
-                                SockChannel.write(buffer);
-                                if (!buffer.hasRemaining()) {
-                                    outputQueue.poll();
-                                    if (outputQueue.isEmpty())
-                                        socketKey.interestOpsAnd(~SelectionKey.OP_WRITE);
-                                }
+                    synchronized (outputQueue) {
+                        if (!outputQueue.isEmpty() && key.isWritable()) {
+                            ByteBuffer buffer = outputQueue.element();
+                            SockChannel.write(buffer);
+                            if (!buffer.hasRemaining()) {
+                                outputQueue.poll();
+                                if (outputQueue.isEmpty())
+                                    socketKey.interestOpsAnd(~SelectionKey.OP_WRITE);
                             }
                         }
                     }
                     Message message;
                     synchronized (this) {
-                        message = inputQueue.poll();
+                        synchronized (inputQueue) {
+                            message = inputQueue.poll();
+                        }
                     }
                     if (message != null) {
                         handleMessage(message);
                     }
                 }
-                if (!outputQueue.isEmpty()) {
-                    socketKey.interestOpsOr(SelectionKey.OP_WRITE);
+                synchronized (outputQueue) {
+                    if (!outputQueue.isEmpty()) {
+                        socketKey.interestOpsOr(SelectionKey.OP_WRITE);
+                    }
                 }
             }
         }
@@ -190,7 +195,7 @@ public class Client implements AutoCloseable {
         }
     }
 
-    public synchronized void addOutputMessage(Message message) {
+    public void addOutputMessage(Message message) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         try {
             PARSER.encode(stream, message);
@@ -203,17 +208,32 @@ public class Client implements AutoCloseable {
         buffer.putInt(bytes.length);
         buffer.put(bytes);
         buffer.position(0);
-        outputQueue.offer(buffer);
+        synchronized (outputQueue) {
+            outputQueue.offer(buffer);
+        }
+        synchronized (this) {
+            if (ListeningSelector == null) {
+                try {
+                    this.wait();
+                } catch (InterruptedException e) {
+                    IsAlive.set(false);
+                }
+            }
+            ListeningSelector.wakeup();
+        }
     }
 
-    private synchronized void addInputMessage(ByteBuffer message) {
+    private void addInputMessage(ByteBuffer message) {
         try {
-            inputQueue.offer(PARSER.parse(new ByteArrayInputStream(message.array())));
+            synchronized (inputQueue) {
+                inputQueue.offer(PARSER.parse(new ByteArrayInputStream(message.array())));
+            }
         } catch (ParsingException e) {
             IsAlive.set(false);
         }
     }
 
+    private Selector ListeningSelector;
     private Runnable CancelListener;
     private Consumer<Message> MessageListener;
     private UUID USID;

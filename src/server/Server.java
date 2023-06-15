@@ -9,6 +9,7 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -50,22 +51,18 @@ public class Server {
 
     public void start() {
         LOGGER.info("Starting server");
-        synchronized (this) {
-            IsRunning = true;
-        }
-//        ExecutorService executor = Executors.newCachedThreadPool();
+        IsRunning.set(true);
         try (
                 Selector selector = Selector.open();
                 ServerSocketChannel serverChannel = ServerSocketChannel.open()
         ) {
             serverChannel.bind(new InetSocketAddress(ADDRESS, PORT));
             serverChannel.configureBlocking(false);
-            SelectionKey serverKey = serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
             LOGGER.info("listening to connections...");
             while (!Thread.interrupted()) {
                 selector.select();
-//                LOGGER.info("Connections: " + SessionMap.size());
                 var iter = selector.selectedKeys().iterator();
                 while (iter.hasNext()) {
                     SelectionKey key = iter.next();
@@ -78,7 +75,6 @@ public class Server {
                         SessionMap.put(usid, session);
                         Thread thread = new Thread(handler);
                         thread.start();
-//                        executor.submit(handler);
                         LOGGER.info("incoming socket connection USID: " + usid);
                     }
                 }
@@ -95,18 +91,19 @@ public class Server {
                     MessageType.SERVER_ERROR,
                     new ServerError("Server closed")
             ));
-            synchronized (this) {
-                IsRunning = false;
-            }
+            IsRunning.set(false);
         }
     }
 
-    public synchronized boolean isRunning() {
-        return IsRunning;
+    public boolean isRunning() {
+        return IsRunning.get();
     }
 
     public void handleMessage(Message msg, UUID usid) {
         Session session = SessionMap.get(usid);
+        if (session == null) {
+            return;
+        }
         switch (msg.getType()) {
             case CLIENT_LOGIN -> {
                 ClientLogin login = (ClientLogin) msg.getMessage();
@@ -234,12 +231,15 @@ public class Server {
         LOGGER.info("removing session: " + usid);
         if (SessionMap.containsKey(usid) && SessionMap.get(usid).isAuthorised()) {
             ServerUserName userName = new ServerUserName(SessionMap.get(usid).login().name());
+            SessionMap.remove(usid);
             broadcast(new Message(
                     MessageType.SERVER_USER_LOGOUT,
                     userName
             ));
         }
-        SessionMap.remove(usid);
+        else {
+            SessionMap.remove(usid);
+        }
     }
 
     private void broadcast(Message message) {
@@ -261,7 +261,7 @@ public class Server {
 
     private final Deque<ServerMessage> Backlog = new LinkedList<>();
     private final Map<UUID, Session> SessionMap = Collections.synchronizedMap(new HashMap<>());
-    private boolean IsRunning = false;
+    private final AtomicBoolean IsRunning = new AtomicBoolean(false);
 }
 
 record Session(boolean isAuthorised, ClientLogin login, ClientHandler handler) {  }
